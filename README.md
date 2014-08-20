@@ -1,0 +1,3 @@
+# DownloadManager plugin for cordova android
+
+wip...
