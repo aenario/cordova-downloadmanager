@@ -1,11 +1,13 @@
-package io.cozy.imagesbrowser;
+package io.cozy.downloadmanager;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONException;
 
 import android.annotation.SuppressLint;
 import android.content.CursorLoader;
@@ -19,6 +21,9 @@ import android.provider.ContactsContract.CommonDataKinds.Photo;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Data;
 import android.provider.MediaStore;
+import android.net.Uri;
+import android.content.Context;
+import android.app.DownloadManager;
 
 public class DownloadManagerPlugin extends CordovaPlugin {
 
@@ -30,14 +35,10 @@ public class DownloadManagerPlugin extends CordovaPlugin {
 
     private static final class RequestContext {
         String source;
-        String target;
-        File targetFile;
-        Long referece;
         CallbackContext callbackContext;
         boolean aborted;
-        RequestContext(String source, String target, CallbackContext callbackContext) {
+        RequestContext(String source, CallbackContext callbackContext) {
             this.source = source;
-            this.target = target;
             this.callbackContext = callbackContext;
         }
         void sendPluginResult(PluginResult pluginResult) {
@@ -57,19 +58,26 @@ public class DownloadManagerPlugin extends CordovaPlugin {
      * @param callbackContext   The callback id used when calling back into JavaScript.
      * @return                  True if the action was valid, false if not.
      */
-    public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
-        if (action.equals("startDownload")) {
+    public boolean execute(String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException {
+        if (action.equals("download")) {
             cordova.getThreadPool().execute(new Runnable() {
                 public void run() {
                     if (Looper.myLooper() == null) {
                         Looper.prepare();
                     }
 
-                    Url source = args.getString(0)
-                    JSONObject headers = args.optJSONObject(2);
-                    RequestContext rcontext = new RequestContext(source)
-
-                    startDownload(rcontext);
+                    try {
+                        // :TODO: path seems to be of no use, could be removed from JS API.
+                        // :TODO: Do something with the headers
+                        String source = args.getString(0);
+                        JSONObject headers = args.optJSONObject(2);
+                        RequestContext rcontext = new RequestContext(source, callbackContext);
+                        // :TODO: report id back to JS
+                        startDownload(rcontext);
+                    } catch (JSONException e) {
+                        // :TODO: repor error
+                        return false;
+                    }
                 }
             });
         }
@@ -81,12 +89,12 @@ public class DownloadManagerPlugin extends CordovaPlugin {
 
 
     @SuppressLint("NewApi")
-    public JSONArray startDownload(RequestContext rcontext){
-        DownloadManager downloadmanager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+    public long startDownload(RequestContext rcontext){
+        Context context = this.cordova.getActivity().getApplicationContext();
+        DownloadManager downloadmanager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
         Uri uri = Uri.parse(rcontext.source);
-        DownloadManager.Request request = new Request(uri);
-        RequestContext.reference = downloadmanager.enqueue(request);
-
+        DownloadManager.Request request = new DownloadManager.Request(uri);
+        return downloadmanager.enqueue(request);
     }
 
 }
